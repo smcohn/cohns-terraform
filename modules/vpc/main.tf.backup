@@ -1,0 +1,193 @@
+# VPC Module 
+# Creates a VPC and four subnets.
+# Creates an Internet Gateway.
+# Creates Security groups for ssh, http and nfs.
+resource "aws_vpc" "us-west-vpc" {
+  cidr_block               = "${var.vpc_cidr_block}"
+  enable_dns_hostnames     = true
+  enable_dns_support       = true
+
+  tags = {
+    Name        = "${var.company}-${var.env}-${var.app}-${var.region}-vpc"
+    Company     = "${var.company}"
+    Environment = "${var.env}"
+    Terraform   = true
+  }
+}
+
+
+# These should be consolidated either by AZ or pub/prv.
+resource "aws_subnet" "pub-2a" {
+  availability_zone = "us-west-2a"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+  cidr_block = "10.0.0.0/20"
+  map_public_ip_on_launch = "true"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.region}-pub-2a"
+    Company     = "${var.company}"
+    Environment = "${var.env}"
+    Terraform   = true
+  }
+}
+
+resource "aws_subnet" "pub-2b" {
+  availability_zone = "us-west-2b"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+  cidr_block = "10.0.32.0/20"
+  map_public_ip_on_launch = "true"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.region}-pub-2b"
+    Company     = "${var.company}"
+    Environment = "${var.env}"
+    Terraform   = true
+  }
+}
+
+resource "aws_subnet" "prv-2a" {
+  availability_zone = "us-west-2a"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+  cidr_block = "10.0.16.0/20"
+  map_public_ip_on_launch = "false"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.region}-2a-prv"
+    Company     = "${var.company}"
+    Environment = "${var.env}"
+    Terraform   = true
+  }
+}
+
+resource "aws_subnet" "prv-2b" {
+  availability_zone = "us-west-2b"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+  cidr_block = "10.0.48.0/20"
+  map_public_ip_on_launch = "false"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.region}-2b-prv"
+    Company     = "${var.company}"
+    Environment = "${var.env}"
+    Terraform   = true
+  }
+}
+
+
+# Security groups.
+resource "aws_security_group" "allow_outbound" {
+  name        = "allow_outbound"
+  description = "Allow outbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "allow_nfs" {
+  name        = "allow_nfs"
+  description = "Allow nfs inbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  ingress {
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/20", "10.0.32.0/20"]
+  }
+
+}
+
+resource "aws_security_group" "allow_ssh" {
+  name        = "allow_ssh"
+  description = "Allow SSH inbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+}
+
+resource "aws_security_group" "allow_http" {
+  name        = "allow_http"
+  description = "Allow http inbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "allow_mysql" {
+  name        = "allow_mysql"
+  description = "Allow mysql inbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+  }
+}
+
+resource "aws_security_group" "allow_flask" {
+  name        = "allow_flask"
+  description = "Allow flask inbound traffic"
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_internet_gateway" "default" {
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.region}-vpc-igw"
+    Environment = "${var.env}"
+  }
+}
+
+resource "aws_route_table" "r" {
+  vpc_id     = "${aws_vpc.us-west-vpc.id}"
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.default.id
+  }
+
+  tags = {
+    Environment = "${var.env}"
+    Company     = "${var.company}"
+    Name = "main"
+    Terraform   = true
+  }
+}
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = "${aws_subnet.pub-2a.id}"
+  route_table_id = "${aws_route_table.r.id}"
+}
+
+resource "aws_route_table_association" "b" {
+  subnet_id      = "${aws_subnet.pub-2b.id}"
+  route_table_id = "${aws_route_table.r.id}"
+}
+
+# TODO: 
+# IAM Users
+# Roles
+# Launch template for ec2 instances.
+# Auto Scaling group
+# Load balancer.

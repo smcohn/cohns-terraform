@@ -1,0 +1,10 @@
+resource "aws_vpc" "app-vpc" {
+  count = "${length(var.applications)}"
+  cidr_block = "${cidrsubnet("${var.env_cidrs[var.env]}",2,count.index)}"
+  instance_tenancy = "dedicated"
+  provider = "aws.us-east"
+  tags = {
+    Name = "${var.company}-${var.env}-${var.applications[count.index]}-${var.region}-vpc"
+  }
+}
+
