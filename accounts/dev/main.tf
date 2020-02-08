@@ -21,6 +21,15 @@ module "iam" {
   source = "../../modules/iam"
 }
 
+module "s3" {
+  source = "../../modules/s3"
+  
+  company                   = "${var.company}"
+  env                       = "${var.env}"
+  app                       = "${var.app}"
+  bucket_name               = "451089431772-static-assets"
+}
+
 # This should be changed to create a single db, not to try to figure out by itself 
 # which ones.  ie. move that logic here, and out of the moduele
 module "rpm-db" {
